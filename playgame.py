@@ -1,4 +1,6 @@
 #Todo:增加简单界面，交互操作
+from time import sleep
+
 import pygame
 import sys
 from common import Setting,State
@@ -8,7 +10,7 @@ from map import Map
 from pyUI import PyUI
 
 def new_start(setting,screen):
-    ui = PyUI()
+    ui = PyUI(setting)
     world = World(setting)
     while world.state.time < 3:
         while True:
@@ -19,12 +21,17 @@ def new_start(setting,screen):
             print(command)
             if command[0]=='exit':
                 sys.exit()
-            if command[0]=='move_to':
+            elif command[0]=='move_to':
                 tar_x = int(command[1])
                 tar_y = int(command[2])
                 rs = world.me.move_to(tar_x,tar_y,world.map)
                 if rs==False:
                     continue
+            elif command[0] == 'move':
+                direction = int(command[1])
+                rs = world.me.move(direction,world.map)
+            #if rs:
+                #ui.action(command,screen,world,setting)#播放动画
             print('现在时间:%d年%d月%d日'%(world.state.GetYear(),world.state.GetMonth(),world.state.GetDay()))
             world.state.dayAdd()
     print('剧终')

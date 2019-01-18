@@ -1,45 +1,72 @@
 #单独将UI相关操作提取出来以方便语言移植
 import sys
+import numpy
+
 import pygame
 from pygame import Rect
 class PyUI(object):
-    def __init__(self):
+    def __init__(self, setting):
         self.ground_image=['' for i in range(0,256)]
-        self.ground_image[1] = pygame.image.load('resources/grass.bmp')
-        self.ground_image[11] = pygame.image.load('resources/mountain1.bmp')
-        self.ground_image[255] = pygame.image.load('resources/hero.bmp')
+        self.ground_image[1] = pygame.image.load('resources/grass.png')
+        self.ground_image[11] = pygame.image.load('resources/mountain1.png')
+        self.ground_image[255] = pygame.image.load('resources/hero.png')
         self.view_moving = 0 #0：静止，1-4上下左右
-        self.view_moving_rate = 4
+        self.view_moving_rate = 10
+        self.draging_x = 0
+        self.draging_y = 0
+        self.draging = False#鼠标中键拖动地图判断标志
+        self.old_tick = pygame.time.get_ticks()
+        self.old_action_tick = pygame.time.get_ticks()
+        self.old_tip_tick = pygame.time.get_ticks()
+        self.tip_font = pygame.font.SysFont('SimHei', 20)
+        self.tip_board = self.tip_font.render("FPS:" , True, (0, 0, 255))
+        #self.canvas = pygame.Surface(setting.window_width,setting.window_height)#屏幕画布
+        #self.view_objs = pygame.Group()
 
-    def pos_transform(self,mapx,mapy,map):#根据视点将绝对坐标转换为屏幕坐标
+    def pos_transform_wts(self,mapx,mapy,map):#根据视点将绝对坐标转换为屏幕坐标
         len = map.block_len
         posx = -map.view_x+mapx*len
         posy = -map.view_y+mapy*len
         return Rect((posx,posy),(len,len))
 
-    def move_view(self,world,setting):#视角移动
+    def view_check(self,map,setting):#检查视图有无超出边界并纠正
+        if map.view_x < 0:
+            map.view_x = 0
+        elif map.view_x + setting.window_width > map.map_width * map.block_len:
+            map.view_x = max(map.map_width * map.block_len - setting.window_width, 0)
+        if map.view_y < 0:
+            map.view_y = 0
+        elif map.view_y + setting.window_height > map.map_height * map.block_len:
+            map.view_y = max(map.map_height * map.block_len - setting.window_height, 0)
+
+    def pos_transform_stw(self,screen_x,screen_y,map):#根据屏幕坐标转换为地图坐标，不在地图范围内返回(-1,-1)
+        abs_x = (screen_x + map.view_x) // map.block_len
+        abs_y = (screen_y + map.view_y) // map.block_len
+        if abs_x >= 0 and abs_x < map.map_width and abs_y >= 0 and abs_y < map.map_height:
+            return (abs_x,abs_y)
+        else:
+            return (-1,-1)
+
+    def move_view(self,map,setting):#视角移动
         if self.view_moving == 0:#静止
             return
         elif self.view_moving == 1:#上
-            if world.map.view_y > 0 - setting.window_height / 2:
-                world.map.view_y -= 1*self.view_moving_rate
+            map.view_y -= 1 * self.view_moving_rate
         elif self.view_moving == 2:#下
-            if world.map.view_y < world.map.map_height*world.map.block_len - setting.window_height / 2:
-                world.map.view_y += 1*self.view_moving_rate
+            map.view_y += 1 * self.view_moving_rate
         elif self.view_moving == 3:#左
-            if world.map.view_x > 0 - setting.window_width / 2:
-                world.map.view_x -= 1*self.view_moving_rate
+            map.view_x -= 1 * self.view_moving_rate
         elif self.view_moving == 4:#右
-            if world.map.view_x < world.map.map_width * world.map.block_len - setting.window_width / 2:
-                world.map.view_x += 1 * self.view_moving_rate
+            map.view_x += 1 * self.view_moving_rate
 
     def wait_op(self,screen,world,setting):
         command_str = ''
+        ticks = pygame.time.get_ticks()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
             if event.type == pygame.KEYDOWN:#按键处理
-                if event.key == pygame.K_RIGHT:
+                if event.key == pygame.K_RIGHT:#方向键设置地图滚动状态
                     self.view_moving = 4
                 if event.key == pygame.K_LEFT:
                     self.view_moving = 3
@@ -47,30 +74,68 @@ class PyUI(object):
                     self.view_moving = 1
                 if event.key == pygame.K_DOWN:
                     self.view_moving = 2
-                if event.key == pygame.K_a:
-                    command_str = "move_to %d %d"%(world.me.posx - 1,world.me.posy)
-                elif event.key == pygame.K_d:
-                    command_str = "move_to %d %d"%(world.me.posx + 1,world.me.posy)
-                elif event.key == pygame.K_w:
-                    command_str = "move_to %d %d"%(world.me.posx,world.me.posy - 1)
+                if event.key == pygame.K_w:
+                    command_str = "move 1"
                 elif event.key == pygame.K_s:
-                    command_str = "move_to %d %d" % (world.me.posx,world.me.posy + 1)
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_UP or event.key == pygame.K_DOWN or event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
+                    command_str = "move 2"
+                elif event.key == pygame.K_a:
+                    command_str = "move 3"
+                elif event.key == pygame.K_d:
+                    command_str = "move 4"
+            elif event.type == pygame.KEYUP:#松开方向键时取消移动状态
+                if (event.key == pygame.K_UP and self.view_moving == 1) or (event.key == pygame.K_DOWN and self.view_moving == 2) or (event.key == pygame.K_LEFT and self.view_moving == 3) or (event.key == pygame.K_RIGHT and self.view_moving == 4):
                     self.view_moving = 0
-        self.move_view(world,setting)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                if event.button == 1:#左键移动
+                    abs_pos = self.pos_transform_stw(mouse_pos[0],mouse_pos[1],world.map)
+                    if abs_pos[0] != -1: #若在地图范围内
+                        command_str = "move_to %d %d"%(abs_pos[0],abs_pos[1])
+                if event.button == 4:#上滚轮
+                    world.map.scale_update(1, mouse_pos)
+                    #world.map.view_x,world.map.view_y = list(map(lambda x : x*world.map.block_len - , self.pos_transform_stw(mouse_pos[0],mouse_pos[1],world.map)))
+                elif event.button == 5:#下滚轮
+                    world.map.scale_update(2, mouse_pos)
+                elif event.button == 2:#鼠标中键按下
+                    self.draging = True
+                    self.draging_x, self.draging_y = mouse_pos[0], mouse_pos[1]
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 2:#鼠标中键松开
+                    self.draging = False
+        if self.draging:#鼠标中键拖动地图判断
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_change_x, mouse_change_y = self.draging_x - mouse_pos[0], self.draging_y - mouse_pos[1]
+            world.map.view_x += mouse_change_x
+            world.map.view_y += mouse_change_y
+            self.draging_x, self.draging_y = mouse_pos[0], mouse_pos[1]
+
+        self.view_check(world.map, setting)
+        self.move_view(world.map,setting)
         self.update_screen(screen,world,setting)
         return command_str
 
+    def float2Screen(self,posx_f,posy_f,map):#浮点坐标转屏幕坐标
+        screen_x = posx_f // map.block_len * map.block_len - map.view_x + posx_f % map.block_len
+        screen_y = posy_f // map.block_len * map.block_len - map.view_y + posy_f % map.block_len
+        return (screen_x,screen_y)
+
     def update_screen(self,screen,world,setting):
-        screen.fill((0,0,0))
-        bl = world.map.block_len
-        x_num = setting.window_width // world.map.block_len + 1
-        y_num = setting.window_height // world.map.block_len + 1
-        for i in range(world.map.view_x//bl,min(world.map.view_x//bl+x_num,world.map.map_height)):
-            for j in range(world.map.view_y//bl,min(world.map.view_y//bl+y_num,world.map.map_width)):
-                if i>= 0 and j>= 0:
-                    screen.blit(self.ground_image[world.map.ground[i][j]],self.pos_transform(i,j,world.map))
-        screen.blit(self.ground_image[255], self.pos_transform(world.me.posx,world.me.posy,world.map))
-        pygame.display.flip()
+        tick = pygame.time.get_ticks()
+        if tick - self.old_tick > setting.refresh_gap:#限制帧率
+            screen.fill((0,0,0))
+            bl = world.map.block_len
+            x_num = setting.window_width // world.map.block_len + 2
+            y_num = setting.window_height // world.map.block_len + 2
+            for i in range(world.map.view_x//bl,min(world.map.view_x//bl+x_num,world.map.map_width)):
+                for j in range(world.map.view_y//bl,min(world.map.view_y//bl+y_num,world.map.map_height)):
+                    if i>= 0 and j>= 0:
+                        screen.blit(pygame.transform.scale(self.ground_image[world.map.ground[i][j]],(bl,bl)),self.pos_transform_wts(i,j,world.map))#绘制地图
+            world.me.update_action(world.map, setting)
+            screen.blit(pygame.transform.scale(self.ground_image[255],(bl,bl)), Rect(self.float2Screen(world.me.posx_float,world.me.posy_float,world.map),(bl,bl)))#绘制主角
+            if tick - self.old_tip_tick > 500:
+                self.tip_board = self.tip_font.render("FPS:%.2f"%(1000/(tick - self.old_tick)), True, (0, 0, 255))
+                self.old_tip_tick = tick
+            screen.blit(self.tip_board, (setting.window_width-200,0,100,100))
+            pygame.display.flip()
+            self.old_tick = tick
 
