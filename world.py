@@ -9,3 +9,5 @@ class World(object):
         self.me =  Role(1,1,'猪脚')
         self.me.setting_attr(1,1000)
         self.me.check()
+        self.map.add(self.me)
+
