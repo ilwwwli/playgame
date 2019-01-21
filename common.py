@@ -2,12 +2,11 @@ class Setting(object):
     def __init__(self):
         self.window_width = 1024
         self.window_height = 768
-        self.map_width = 100
-        self.map_height = 50
         self.start_year = 1600
-        self.action_rate = 1 #动作速率
+        self.action_rate = 5 #动作速率
         self.action_frame_num = 20 #每秒动作帧数
-        self.refresh_gap = 1000//60#屏幕刷新间隔
+        self.refresh_gap = 1000//30#屏幕刷新间隔,分母表示上限帧率
+
 
 class State(object):
     def __init__(self,setting):
@@ -16,14 +15,14 @@ class State(object):
         self.time = 1
         self.start_year = setting.start_year
 
-    def GetYear(self):
+    def get_year(self):
         return self.time // 360 + self.start_year
 
-    def GetMonth(self):
+    def get_month(self):
         return self.time % 360 // 30 + 1
 
-    def GetDay(self):
+    def get_day(self):
         return self.time % 360 % 30 + 1
 
-    def dayAdd(self):
+    def day_add(self):
         self.time += 1

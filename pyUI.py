@@ -1,5 +1,6 @@
 #单独将UI相关操作提取出来以方便语言移植
 import sys
+from map import Mtype
 import numpy
 
 import pygame
@@ -7,9 +8,9 @@ from pygame import Rect
 class PyUI(object):
     def __init__(self, setting):
         self.ground_image=['' for i in range(0,256)]
-        self.ground_image[1] = pygame.image.load('resources/grass.png')
-        self.ground_image[11] = pygame.image.load('resources/mountain1.png')
-        self.ground_image[255] = pygame.image.load('resources/hero.png')
+        self.ground_image[Mtype.GRASS] = pygame.image.load('resources/grass.png')#图像注册
+        self.ground_image[Mtype.MONTAIN1] = pygame.image.load('resources/mountain1.png')
+        self.ground_image[Mtype.HERO] = pygame.image.load('resources/hero.png')
         self.view_moving = 0 #0：静止，1-4上下左右
         self.view_moving_rate = 10
         self.draging_x = 0
@@ -74,14 +75,18 @@ class PyUI(object):
                     self.view_moving = 1
                 if event.key == pygame.K_DOWN:
                     self.view_moving = 2
-                if event.key == pygame.K_w:
-                    command_str = "move 1"
+                if event.key == pygame.K_w:#先清空现有指令，再赋值新的移动指令
+                    world.me.directing = []
+                    world.me.directing.append("move 1")
                 elif event.key == pygame.K_s:
-                    command_str = "move 2"
+                    world.me.directing = []
+                    world.me.directing.append("move 2")
                 elif event.key == pygame.K_a:
-                    command_str = "move 3"
+                    world.me.directing = []
+                    world.me.directing.append("move 3")
                 elif event.key == pygame.K_d:
-                    command_str = "move 4"
+                    world.me.directing = []
+                    world.me.directing.append("move 4")
             elif event.type == pygame.KEYUP:#松开方向键时取消移动状态
                 if (event.key == pygame.K_UP and self.view_moving == 1) or (event.key == pygame.K_DOWN and self.view_moving == 2) or (event.key == pygame.K_LEFT and self.view_moving == 3) or (event.key == pygame.K_RIGHT and self.view_moving == 4):
                     self.view_moving = 0
@@ -90,7 +95,7 @@ class PyUI(object):
                 if event.button == 1:#左键移动
                     abs_pos = self.pos_transform_stw(mouse_pos[0],mouse_pos[1],world.map)
                     if abs_pos[0] != -1: #若在地图范围内
-                        command_str = "move_to %d %d"%(abs_pos[0],abs_pos[1])
+                        world.me.directing.append("find_way %d %d"%(abs_pos[0],abs_pos[1]))
                 if event.button == 4:#上滚轮
                     world.map.scale_update(1, mouse_pos)
                     #world.map.view_x,world.map.view_y = list(map(lambda x : x*world.map.block_len - , self.pos_transform_stw(mouse_pos[0],mouse_pos[1],world.map)))
@@ -129,7 +134,7 @@ class PyUI(object):
             for i in range(world.map.view_x//bl,min(world.map.view_x//bl+x_num,world.map.map_width)):
                 for j in range(world.map.view_y//bl,min(world.map.view_y//bl+y_num,world.map.map_height)):
                     if i>= 0 and j>= 0:
-                        screen.blit(pygame.transform.scale(self.ground_image[world.map.ground[i][j]],(bl,bl)),self.pos_transform_wts(i,j,world.map))#绘制地图
+                        screen.blit(pygame.transform.scale(self.ground_image[world.map.node[i][j].type],(bl,bl)),self.pos_transform_wts(i,j,world.map))#绘制地图
             world.me.update_action(world.map, setting)
             screen.blit(pygame.transform.scale(self.ground_image[255],(bl,bl)), Rect(self.float2Screen(world.me.posx_float,world.me.posy_float,world.map),(bl,bl)))#绘制主角
             if tick - self.old_tip_tick > 500:
@@ -138,4 +143,6 @@ class PyUI(object):
             screen.blit(self.tip_board, (setting.window_width-200,0,100,100))
             pygame.display.flip()
             self.old_tick = tick
+        else:
+            pygame.time.wait(20)#让出CPU给其它进程
 

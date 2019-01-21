@@ -1,21 +1,35 @@
-from pygame.sprite import Group
+from enum import IntEnum
+import json
+
+
+class Mtype(IntEnum):
+    GRASS = 1
+    MONTAIN1 = 11
+    HERO = 255
+
+
+class Node(object):
+    def __init__(self,type = Mtype.GRASS, u_w = 1, d_w = 1, l_w = 1, r_w = 1):
+        self.type = type
+        self.u_w = u_w#各方向权值
+        self.d_w = d_w
+        self.l_w = l_w
+        self.r_w = r_w
+
 
 class Map(object):
-    def __init__(self,map_width,map_height):
-        self.map_width = map_width
-        self.map_height = map_height
+    def __init__(self,setting,map_name = 'map/world_map.json'):
         self.block_len = 30#每小块地图边长
         self.block_len_max = 70#每小块最大地图边长
         self.block_len_initial = 30#每小块地图初始边长
-        self.block_len_change =10#每次缩放改变的边长
-        self.view_x=0
-        self.view_y=0
-        self.ground = [[1 for i in range(map_height)] for j in range(map_width)]
-        self.ground[0][0] = 11
-        self.ground[map_width-1][0] = 11
-        self.ground[map_width-1][map_height-1] = 11
-        self.ground[0][map_height-1] = 11
+        self.block_len_change = 10#每次缩放改变的边长
+        self.view_x = 0
+        self.view_y = 0
+        self.init_map(setting,map_name)#读入地图数据
         self.objs = []
+
+    def set_node(self,posx,posy,type):
+        self.node[posx][posy] = type
 
     def pos_transform_stw(self,screen_x,screen_y):#根据屏幕坐标转换为地图坐标，不在地图范围内返回(-1,-1)
         abs_x = (screen_x + self.view_x) // self.block_len
@@ -50,6 +64,22 @@ class Map(object):
         obj.posy_float = obj.posy * self.block_len
         self.objs.append(obj)
 
-    def read_map(self,filename):
-        pass
+    def init_map(self,setting,filename):
+        with open(filename, "r", encoding='utf-8') as file:
+            aa = json.loads(file.read())
+            file.seek(0)
+            cache = json.load(file)  # 与 json.loads(f.read())
+        print(cache)
+        self.map_width = cache['map_width']
+        self.map_height = cache['map_height']
+        self.node = [[Node(cache['default_type']) for i in range(self.map_height)] for j in range(self.map_width)]  # 初始化为草原
+        for unit in cache['nodes']:
+            posx = unit['posx']
+            posy = unit['posy']
+            self.node[posx][posy].type = unit['type']
+            self.node[posx][posy].u_w = unit['up_weight']
+            self.node[posx][posy].d_w = unit['down_weight']
+            self.node[posx][posy].l_w = unit['left_weight']
+            self.node[posx][posy].r_w = unit['right_weight']
+
 
