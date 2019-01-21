@@ -1,0 +1,43 @@
+{
+    "map_width":100,
+    "map_height":50,
+	"default_type": 1,
+    "nodes": [
+        {
+            "posx": 0,
+            "posy": 0,
+            "type": 11,
+            "up_weight": -1,
+            "down_weight": 2,
+            "left_weight": -1,
+            "right_weight": -1
+        },
+        {
+            "posx": 29,
+            "posy": 29,
+            "type": 11,
+            "up_weight": -1,
+            "down_weight": 2,
+            "left_weight": -1,
+            "right_weight": -1
+        },
+        {
+            "posx": 1,
+            "posy": 13,
+            "type": 11,
+            "up_weight": -1,
+            "down_weight": 2,
+            "left_weight": -1,
+            "right_weight": -1
+        },
+        {
+            "posx": 20,
+            "posy": 5,
+            "type": 11,
+            "up_weight": -1,
+            "down_weight": 2,
+            "left_weight": -1,
+            "right_weight": -1
+        }
+    ]
+}
